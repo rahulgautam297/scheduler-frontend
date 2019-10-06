@@ -44,7 +44,8 @@ class Scheduler extends React.Component {
         visible: false,
         pageX: null,
         pageY: null
-      }
+      },
+      currentDate: 0
     };
   }
 
@@ -76,8 +77,7 @@ class Scheduler extends React.Component {
 
     let onError = (error) => { };
 
-    var date = new Date();
-    date = date.setHours(0,0,0,0);
+   let date =  new Date(new Date().setDate(new Date().getDate()+ this.state.currentDate)).setHours(0,0,0,0);
     this.schedulerService.getAllTodaysTasks({ userName: this.state.userName, timeStamp: date }, onResponse, onError);
   }
 
@@ -176,6 +176,26 @@ class Scheduler extends React.Component {
     }
   }
 
+  changeCurrentDate = (change) => {
+    let currentDate = this.state.currentDate + change > 0 ? this.state.currentDate : this.state.currentDate + change;
+    this.setState({
+      currentDate
+    }, () => {
+      this.getTasks();
+    });
+  }
+
+  showDatesBetweenButtons() {
+      return (
+        <div className="container-date">
+          <Button icon primary onClick={ () => this.changeCurrentDate(-1) }>keyboard_arrow_left</Button>
+            <span><Moment format="Do-MMM">{  new Date(new Date().setDate(new Date().getDate()
+                                    + this.state.currentDate)).setHours(0,0,0,0) }</Moment></span>
+          <Button primary icon onClick={ () => this.changeCurrentDate(1) }>keyboard_arrow_right</Button>
+        </div>
+      );
+  }
+
   getTaskLayout = () => {
     const tasks = this.state.tasks.map(({ _id, title, startTime, endTime,
                                                  projectId, timerStart, timerEnd }) => {
@@ -201,6 +221,7 @@ class Scheduler extends React.Component {
             <h1 className="">
               Tasks
             </h1>
+            { this.showDatesBetweenButtons() }
           </Col>
         </Row>
         <Row center="xs" className="container-body">
@@ -248,7 +269,7 @@ class Scheduler extends React.Component {
       </div>
     );
   }
-  
+
   dialogForNewTask(nav, createTask) {
     return(
       <DialogContainer
