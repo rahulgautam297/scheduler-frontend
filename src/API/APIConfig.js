@@ -1,4 +1,5 @@
-const baseAPI = 'http://127.0.0.1:4000';
+const production = true;
+const baseAPI = production ? 'https://scheduler-spinny.herokuapp.com' : 'http://127.0.0.1:4000';
 
 const APIConfig = {
   scheduler: {
