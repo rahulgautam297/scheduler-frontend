@@ -11,7 +11,8 @@
     "react-flexbox-grid": "^2.1.2",
     "react-md": "^1.12.3",
     "react-moment": "^0.9.5",
-    "react-scripts": "0.9.x"
+    "react-scripts": "0.9.x",
+    "webfontloader": "^1.6.28"
   },
   "devDependencies": {},
   "scripts": {

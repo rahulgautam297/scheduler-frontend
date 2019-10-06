@@ -1,5 +1,5 @@
-import APIConfig from './APIConfig';
-import APIService from './APIService';
+import APIConfig from '../../API/APIConfig';
+import APIService from '../../API/APIService';
 
 class SchedulerService {
   constructor() {
@@ -22,7 +22,7 @@ class SchedulerService {
   }
 
   updateTask(id, payload, onResponse, onError) {
-    let url = APIConfig.scheduler.updateTask + `?taskId=&${id}`;
+    let url = APIConfig.scheduler.updateTask + `?taskId=${id}`;
     return this.apiService.put(url, payload, onResponse, onError);
   }
 

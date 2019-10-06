@@ -7,13 +7,17 @@ import {
   TableBody,
   TableHeader,
   TableColumn,
-  Dialog,
+  DialogContainer,
   DataTable,
   Toolbar,
-  SelectField
+  SelectField,
+  TimePicker
 } from 'react-md';
-import SchedulerService from './SchedulerService';
+
 import Moment from 'react-moment';
+
+import SchedulerService from './service/SchedulerService';
+import './style/index.css';
 
 class Scheduler extends React.Component {
   constructor() {
@@ -33,7 +37,8 @@ class Scheduler extends React.Component {
         endTime: null,
         timerStart: null,
         timerEnd: null,
-        projectId: null
+        projectId: null,
+        timeStamp: null
       },
       addNew: {
         visible: false,
@@ -60,7 +65,6 @@ class Scheduler extends React.Component {
 
   getTasks = () => {
     let onResponse = (data) => {
-      console.log(data);
       clearInterval(this.setTimerId);
       this.setTimeoutStarted = false;
       this.setState({
@@ -79,76 +83,97 @@ class Scheduler extends React.Component {
 
   startOrStopTimer = (id, timeHash) => {
     let onResponse = (data) => {
-      console.log(data);
       let tasks = this.state.tasks;
       let task = tasks.find(task => task._id === id);
-      task.startTime = timeHash.startTime;
-      task.endTime = timeHash.endTime;
+      task.timerStart = timeHash.timerStart;
+      task.timerEnd = timeHash.timerEnd;
       this.setState({
         tasks
       });
     };
 
     let onError = (error) => { };
-    this.schedulerService.updateTask(id, { startTime: timeHash.startTime, endTime: timeHash.endTime }, onResponse, onError);
+    this.schedulerService.updateTask(id, timeHash, onResponse, onError);
   }
 
   createTaskrequest = () => {
     let onResponse = (data) => {
-      console.log(data);
       let tasks = this.state.tasks;
-      //add _id
       let task = this.state.task;
-      // task._id = data.task._id;
-      task.push(this.state.task);
+      task._id = data.insertedId;
+      tasks.push(this.state.task);
       this.setState({
         tasks
+      }, () => {
+        this._closeDialogContainer();
       });
     };
 
     let onError = (error) => { };
-    this.schedulerService.updateTask(this.state.task, onResponse, onError);
-  }
-
-  timerLayout = (id, startTime, endTime) => {
-    if (startTime === null || startTime === undefined) {
-      <Button secondary onClick={ () => this.startOrStopTimer(id,
-                                   { startTime: new Date().getTime(), endTime: null }) }>Start</Button>
-    } else if (endTime === null || endTime === undefined) {
-      if (!this.setTimeoutStarted) {
-        this.setTimerId = setTimeout(() => {
-          let tasks = this.state.tasks;
-          this.setState({
-            tasks
-          })
-        }, 1000);
-        this.setTimeoutStarted = true;
-      }
-      let elapsedTimeHours = (new Date() - new Date(startTime))/ (1000 * 3600);
-      let elapsedTimeMinutes = (elapsedTimeHours % 1) * 60;
-      let elapsedTimeSeconds = (elapsedTimeMinutes % 1) * 60;
-      let elapsedTime = `elapsed time ${ elapsedTimeHours }:${ elapsedTimeMinutes}:${ elapsedTimeSeconds }`
-      return (
-        <span>
-          { elapsedTime }
-          <Button secondary onClick={ () => this.startOrStopTimer(id,
-                         { startTime: startTime, endTime: new Date().getTime() }, false) }>Stop</Button>
-          </span>
-      );
-    } else {
-      let elapsedTimeHours = (new Date(endTime) - new Date(startTime))/ (1000 * 3600);
-      let elapsedTimeMinutes = (elapsedTimeHours % 1) * 60;
-      let elapsedTimeSeconds = (elapsedTimeMinutes % 1) * 60;
-      return `elapsed time ${ elapsedTimeHours }:${ elapsedTimeMinutes }:${ elapsedTimeSeconds }`
-    }
+    this.schedulerService.saveTask(this.state.task, onResponse, onError);
   }
 
   syncStateForProject = (value) => {
     const task = this.state.task;
-    task.projetId = value;
+    task.projectId = value;
     this.setState({
       task
     });
+  }
+
+  startShowingTimeElapsed = () => {
+    let tasks = this.state.tasks;
+    let runningTimer = false;
+    // if all the timers are off then remove timeOut.
+    tasks.forEach((task) => {
+      if (task.timerStart && !task.timerEnd) runningTimer = true;
+    });
+    if (!runningTimer) {
+      clearInterval(this.setTimerId);
+      this.setTimeoutStarted = false;
+      return;
+    }
+    this.setState({
+      tasks
+    });
+    this.setTimerId = setTimeout(this.startShowingTimeElapsed, 1000);
+  }
+
+  getTimeElapsedOrTaken(timerStart, timerEnd, fromStartTime) {
+    let elapsedTimeHours =  fromStartTime ? (new Date() - new Date(timerStart))/ (1000 * 3600):
+                                            (new Date(timerEnd) - new Date(timerStart))/ (1000 * 3600);
+    let elapsedTimeMinutes = (elapsedTimeHours % 1) * 60;
+    let elapsedTimeSeconds = (elapsedTimeMinutes % 1) * 60;
+    return  (fromStartTime ? 'Time elapsed: ': 'Total time taken: ' )+
+            `${ parseInt(elapsedTimeHours, 10) < 10 ? '0' + parseInt(elapsedTimeHours, 10) : parseInt(elapsedTimeHours, 10) } :
+              ${ parseInt(elapsedTimeMinutes, 10) < 10 ? '0' + parseInt(elapsedTimeMinutes, 10) : parseInt(elapsedTimeMinutes, 10) } :
+              ${ parseInt(elapsedTimeSeconds, 10) < 10 ? '0' + parseInt(elapsedTimeSeconds, 10) : parseInt(elapsedTimeSeconds, 10) }`
+  }
+
+  timerLayout = (id, timerStart, timerEnd) => {
+    if (timerStart === null || timerStart === undefined) {
+
+     return( <Button secondary icon onClick={ () => this.startOrStopTimer(id,
+              { timerStart: new Date().getTime(), timerEnd: null }) }>timer</Button> );
+
+    } else if (timerEnd === null || timerEnd === undefined) {
+      if (!this.setTimeoutStarted) {
+        this.startShowingTimeElapsed();
+        this.setTimeoutStarted = true;
+      }
+      let elapsedTime = this.getTimeElapsedOrTaken(timerStart, timerEnd, true);
+
+      return (
+        <span>
+          { elapsedTime }
+          <Button secondary icon onClick={ () => this.startOrStopTimer(id,
+                         { timerStart: timerStart, timerEnd: new Date().getTime() }, false) }>timer_off</Button>
+          </span>
+      );
+
+    } else {
+      return this.getTimeElapsedOrTaken(timerStart, timerEnd, false);
+    }
   }
 
   getTaskLayout = () => {
@@ -166,7 +191,7 @@ class Scheduler extends React.Component {
     });
 
 
-    const nav = <Button icon onClick={ this._closeDialog }>X</Button>;
+    const nav = <Button icon onClick={ this._closeDialogContainer }>close</Button>;
     const createTask = <Button flat label="Save" onClick={ this.createTaskrequest } />;
 
     return (
@@ -174,7 +199,7 @@ class Scheduler extends React.Component {
         <Row start="xs" >
           <Col xs={ 4 }>
             <h1 className="">
-              tasks
+              Tasks
             </h1>
           </Col>
         </Row>
@@ -204,7 +229,7 @@ class Scheduler extends React.Component {
                 </TableHeader>
                 <TableBody>
                 { tasks.length === 0 ?
-              <h3>No tasks.</h3> : tasks }
+              <TableColumn>No Tasks</TableColumn> : tasks }
                 </TableBody>
               </DataTable>
             </Row>
@@ -214,79 +239,77 @@ class Scheduler extends React.Component {
                 floating
                 primary
                 fixed>
-                +
+                add
               </Button>
             </Row>
           </Col>
         </Row>
-        <Dialog
-          id="fullPageExample"
-          {...this.state.addNew}
-          fullPage
-          aria-label="New Task">
-          <Toolbar
-            colored
-            nav={ nav }
-            actions={ this.createTask }
-            title="New Task"
-            fixed/>
-          <div className="container-dialog">
-            <Row center="xs" className="container-body">
-              <Col
-                xs={12} sm={6} md={4} lg={4}>
-                <Row start="xs">
-                  <TextField
-                    id="name"
-                    label="Title"
-                    type="text"
-                    name="title"
-                    required
-                    value={ this.state.task.title }
-                    onChange={ this.syncState }/>
-                  <TextField
-                    id="userName"
-                    label="User Name"
-                    type="text"
-                    name="userName"
-                    required
-                    value={ this.state.task.userName }
-                    onChange={ this.syncState }/>
-                  <SelectField
-                    id="projectId"
-                    name="projectId"
-                    title="Project"
-                    placeholder="Project"
-                    menuItems={ this.state.projects }
-                    itemLabel="title"
-                    itemValue="_id"
-                    required
-                    onChange={ this.syncStateForProject }/>
-                  <TextField
-                    id="startTime"
-                    label="Start Time"
-                    type="text"
-                    name="startTime"
-                    required
-                    value={ this.state.task.startTime }
-                    onChange={ this.syncState }/>
-                  <TextField
-                    id="endTime"
-                    label="Eend Time"
-                    type="text"
-                    name="endTime"
-                    required
-                    value={ this.state.task.endTime }
-                    onChange={ this.syncState }/>
-                    <br />
-                  </Row>
-                </Col>
-              </Row>
-            </div>
-        </Dialog>
+        { this.dialogForNewTask(nav, createTask) }
       </div>
     );
   }
-
+  
+  dialogForNewTask(nav, createTask) {
+    return(
+      <DialogContainer
+      id="fullPageExample"
+      { ...this.state.addNew }
+      fullPage
+      aria-label="New Task">
+      <Toolbar
+        colored
+        nav={ nav }
+        actions={ createTask }
+        title="New Task"
+        fixed/>
+      <div className="container-dialog">
+        <Row center="xs" className="container-body">
+          <Col
+            xs={12} sm={6} md={4} lg={4}>
+            <Row start="xs">
+              <TextField
+                id="name"
+                label="Title"
+                type="text"
+                name="title"
+                required
+                value={ this.state.task.title }
+                onChange={ this.taskSyncState }/>
+              <SelectField
+                id="projectId"
+                name="projectId"
+                title="Project"
+                placeholder="Project"
+                menuItems={ this.state.projects }
+                itemLabel="title"
+                itemValue="_id"
+                required
+                onChange={ this.syncStateForProject }/>
+              <TimePicker
+                id="time-picker-hover-mode"
+                placeholder="Select start time"
+                inline
+                className="md-cell md-cell--bottom"
+                hoverMode
+                value={ this.state.task.startTime === null ? null : new Date(this.state.task.startTime) }
+                onChange={(time, dateObject) => this.changeStartTime(time, dateObject)}
+              />
+              <TimePicker
+                id="time-picker-hover-mode2"
+                placeholder="Select end time"
+                inline
+                className="md-cell md-cell--bottom"
+                hoverMode
+                value={ this.state.task.endTime === null ? null : new Date(this.state.task.endTime) }
+                onChange={(time, dateObject) => this.changeEndTime(time, dateObject)}
+              />
+            </Row>
+          </Col>
+        </Row>
+      </div>
+    </DialogContainer>
+    );
+  }
   addNewTask = (e) => {
     let task = { };
     task.title = '';
@@ -296,14 +319,17 @@ class Scheduler extends React.Component {
     task.timerStart = null;
     task.timerEnd = null;
     task.projectId = null;
+    var date = new Date();
+    date = date.setHours(0,0,0,0);
+    task.timeStamp = date;
     this.setState({
       task
     });
 
-    this._openDialog(e);
+    this._openDialogContainer(e);
   }
 
-  TaskSyncState = (value, proxy) => {
+  taskSyncState = (value, proxy) => {
     let event = proxy.nativeEvent;
     const task = this.state.task;
     switch (event.target.name) {
@@ -313,30 +339,28 @@ class Scheduler extends React.Component {
           task,
         });
         break;
-      case 'userName':
-        task.userName = value;
-        this.setState({
-          task,
-        });
-        break;
-      case 'startTime':
-        task.startTime = value;
-        this.setState({
-          task,
-        });
-        break;
-      case 'endTime':
-        task.endTime = value;
-        this.setState({
-          task,
-        });
-        break;
       default:
         break;
     }
   }
 
-  _openDialog = (e) => {
+  changeStartTime= (time, dateObject) => {
+    let task = this.state.task;
+    task.startTime = dateObject.getTime();
+    this.setState({
+      task,
+    });
+  }
+
+  changeEndTime= (time, dateObject) => {
+    let task = this.state.task;
+    task.endTime = dateObject.getTime();
+    this.setState({
+      task,
+    });
+  }
+
+  _openDialogContainer = (e) => {
     let { pageX, pageY } = e;
 
     if (e.changedTouches) {
@@ -348,14 +372,13 @@ class Scheduler extends React.Component {
       this.setState({ addNew: { visible: true, pageX: pageX, pageY: pageY } });
   }
 
-  _closeDialog = () => {
+  _closeDialogContainer = () => {
     this.setState({
       addNew: { visible: false }
     });
   }
 
   render() {
-
     return (
       <div className="container-login-dashboard">
         { !this.state.loggedIn && <Row center="xs" >
