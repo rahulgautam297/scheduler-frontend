@@ -164,7 +164,7 @@ class Scheduler extends React.Component {
       let elapsedTime = this.getTimeElapsedOrTaken(timerStart, timerEnd, true);
 
       return (
-        <span>
+        <span className="container-elapsed-time">
           { elapsedTime }
           <Button secondary icon onClick={ () => this.startOrStopTimer(id,
                          { timerStart: timerStart, timerEnd: new Date().getTime() }, false) }>timer_off</Button>

@@ -5,3 +5,7 @@
 .container-date {
   display: flex;
   align-items: center; }
+
+.container-elapsed-time {
+  display: flex;
+  align-items: center; }
